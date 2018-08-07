@@ -41,7 +41,7 @@ def join_random(host, port):
 @cli.command()
 @click.option('--host', default='127.0.0.1', help='connetion host')
 @click.option('--port', default='5001', help='connetion port')
-def join(host, port):
+def join_brain(host, port):
     brain = ScoreBrainBeta()
     client_reactor.connectTCP(host, port, BrainMessageReceiver(brain))
     client_reactor.run()

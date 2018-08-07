@@ -65,14 +65,14 @@ $ chmod a+x ./pyqt5.sh && sh ./pyqt5.sh
 $ pythonw manage.py runserver --tick=1000
 ```
 
-## Run reversi playing client play on cli
-
-```sh
-$ python manage.py join
-```
-
-## Run reversi brain client
+## Run reversi your own brain client
 
 ```sh
 $ python manage.py join_brain
+```
+
+## Run reversi random brain client
+
+```sh
+$ python manage.py join_random
 ```

@@ -52,12 +52,14 @@ class MessageProtocol(WebSocketServerProtocol):
             row, col = payload.decode('utf-8').split(':')
             row = int(row)
             col = int(col)
-            board, player = self.factory.engine.put_piece(self.player_id, row, col)
-            self.broadcastFormatMessage('update', next_player=player, board=board)
-            if self.factory.engine.is_game_over:
+            board, result, next_player, is_game_over = self.factory.engine.put_piece(self.player_id, row, col)
+            if is_game_over:
+                self.broadcastFormatMessage('end', board=board, result=result)
                 waiting_player = self.factory.engine.waiting_player
                 board = self.factory.engine.current_board()
                 self.broadcastFormatMessage('continue', next_player=waiting_player, board=board)
+            else:
+                self.broadcastFormatMessage('update', next_player=next_player, board=board)
         except Exception as exc:
             self.sendFormatMessage('error', error=exc)
 
@@ -92,7 +94,6 @@ class MessageServerFactory(WebSocketServerFactory):
     def broadcast(self, payload, isBinary):
         for c in self.clients:
             c.sendMessage(payload, isBinary)
-        print("broadcasted message to {} clients".format(len(self.clients)))
 
     def buildProtocol(self, *args, **kwargs):
         protocol = self.protocol()

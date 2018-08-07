@@ -7,7 +7,7 @@ from server.window import GameWindow
 from server.socket import MessageServerFactory, reactor as server_reactor
 
 from client.socket import BrainMessageReceiver, reactor as client_reactor
-from client.brains import RandomPutBrain
+from client.brains import RandomBrain, ScoreBrainAlpha, ScoreBrainBeta
 
 
 @click.group()
@@ -33,8 +33,16 @@ def runserver(tick, host, port):
 @cli.command()
 @click.option('--host', default='127.0.0.1', help='connetion host')
 @click.option('--port', default='5001', help='connetion port')
+def join_random(host, port):
+    brain = RandomBrain()
+    client_reactor.connectTCP(host, port, BrainMessageReceiver(brain))
+    client_reactor.run()
+
+@cli.command()
+@click.option('--host', default='127.0.0.1', help='connetion host')
+@click.option('--port', default='5001', help='connetion port')
 def join(host, port):
-    brain = RandomPutBrain()
+    brain = ScoreBrainBeta()
     client_reactor.connectTCP(host, port, BrainMessageReceiver(brain))
     client_reactor.run()
 

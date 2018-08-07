@@ -10,24 +10,42 @@ class Board:
     num_cols = 8
     __rows = ['1', '2', '3', '4', '5', '6', '7', '8']
     __cols = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-    __position = [
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, WHITE, BLACK, 0, 0, 0],
-        [0, 0, 0, BLACK, WHITE, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0],
-    ]
 
+    def __init__(self, raw=None):
+        self.__position = [
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, WHITE, BLACK, 0, 0, 0],
+            [0, 0, 0, BLACK, WHITE, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+        if raw:
+            self.__position = raw
 
-    def is_game_over(self):
+    def pieces_count(self):
+        white = 0
+        black = 0
+        blank = 0
         for row in range(self.num_rows):
             for col in range(self.num_cols):
-                if self.__position[row][col] == BLANK:
-                    return False
-        return True
+                if self.__position[row][col] == WHITE:
+                    white += 1
+                elif self.__position[row][col] == BLACK:
+                    black += 1
+                else:
+                    blank += 1
+        return { WHITE: white, BLACK: black, BLANK: blank }
+
+    def is_game_over(self):
+        pieces_count = self.pieces_count()
+        if pieces_count[BLANK] == 0:
+            return True
+        if pieces_count[WHITE] == 0 or pieces_count[BLACK] == 0:
+            return True
+        return False
 
     def get_position(self):
         position = copy.deepcopy(self.__position)

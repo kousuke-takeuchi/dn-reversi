@@ -4,11 +4,13 @@ import json
 
 
 class StatusSerializer:
-    def __init__(self, status=None, player_id=None, next_player=None, board=None, error=None):
+    def __init__(self, status=None, player_id=None, next_player=None,
+                       board=None, result=None, error=None):
         self.status = status
         self.player_id = player_id
         self.next_player = next_player
         self.board = board
+        self.result = result
         self.error = error
 
     @property
@@ -18,8 +20,10 @@ class StatusSerializer:
             player_id=self.player_id,
             next_player=self.next_player,
             board=self.board,
+            result=self.result,
             error=self.error and str(self.error)
         )
+        print(data)
         return json.dumps(data).encode('utf-8')
 
     @classmethod

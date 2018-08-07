@@ -38,7 +38,8 @@ class MessageProtocol(WebSocketServerProtocol):
             self.transport.loseConnection()
         waiting_player = self.factory.engine.waiting_player
         if waiting_player:
-            self.broadcastFormatMessage('start', next_player=waiting_player)
+            board = self.factory.engine.current_board()
+            self.broadcastFormatMessage('start', next_player=waiting_player, board=board)
         print('Connection from: {}'.format(self.transport.getPeer().host))
 
     def onMessage(self, payload, isBinary):
@@ -52,15 +53,20 @@ class MessageProtocol(WebSocketServerProtocol):
             row = int(row)
             col = int(col)
             board, player = self.factory.engine.put_piece(self.player_id, row, col)
-            self.sendFormatMessage('update', next_player=player, board=board)
+            self.broadcastFormatMessage('update', next_player=player, board=board)
+            if self.factory.engine.is_game_over:
+                waiting_player = self.factory.engine.waiting_player
+                board = self.factory.engine.current_board()
+                self.broadcastFormatMessage('continue', next_player=waiting_player, board=board)
         except Exception as exc:
             self.sendFormatMessage('error', error=exc)
 
     def onClose(self, wasClean, code, reason):
         print('Connection lost')
         print(reason)
+        self.factory.engine.exit_player(self.player_id)
         self.factory.unregister(self)
-
+        self.broadcastFormatMessage('exit')
 
 # class MessageServerFactory(protocol.ServerFactory):
 class MessageServerFactory(WebSocketServerFactory):

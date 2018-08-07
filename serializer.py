@@ -23,6 +23,6 @@ class StatusSerializer:
         return json.dumps(data).encode('utf-8')
 
     @classmethod
-    def deserialize(cls, message):
-        data = json.loads(message)
-        return Serializer(**data)
+    def deserialize(cls, data=''):
+        decode = json.loads(data)
+        return StatusSerializer(**decode)

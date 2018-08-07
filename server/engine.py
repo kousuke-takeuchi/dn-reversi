@@ -26,8 +26,12 @@ class Engine:
     def is_game_over(self):
         game_over = self.board.is_game_over()
         if game_over:
-            self.reset()
+            self.continue_game()
         return game_over
+
+    def continue_game(self):
+        self.board = Board()
+        self.waiting_player = random.choice([self.player1, self.player2])
 
     def reset(self):
         self.board = Board()
@@ -43,6 +47,12 @@ class Engine:
         self.player2 = BLACK if self.player1 == WHITE else WHITE
         self.waiting_player = random.choice([self.player1, self.player2])
         return self.player2
+
+    def exit_player(self, player):
+        if self.player1 == player:
+            self.player1 = None
+        elif self.player2 == player:
+            self.player2 = None
 
     def can_put(self, color, row, col):
         print('can put')
@@ -205,3 +215,6 @@ class Engine:
     def update_window(self):
         evt = BoardEvent()
         wx.PostEvent(self.frame, evt)
+
+    def current_board(self):
+        return self.board.get_position()

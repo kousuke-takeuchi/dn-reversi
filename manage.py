@@ -6,8 +6,8 @@ import wx
 from server.window import GameWindow
 from server.socket import MessageServerFactory, reactor as server_reactor
 
-from client.socket import MessageClientFactory
-from twisted.internet import reactor as client_reactor
+from client.socket import BrainMessageReceiver, reactor as client_reactor
+from client.brains import RandomPutBrain
 
 
 @click.group()
@@ -33,8 +33,9 @@ def runserver(tick, host, port):
 @cli.command()
 @click.option('--host', default='127.0.0.1', help='connetion host')
 @click.option('--port', default='5001', help='connetion port')
-def join_brain(host, port):
-    client_reactor.connectTCP("localhost", port, MessageClientFactory())
+def join(host, port):
+    brain = RandomPutBrain()
+    client_reactor.connectTCP(host, port, BrainMessageReceiver(brain))
     client_reactor.run()
 
 if __name__ == '__main__':

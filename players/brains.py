@@ -2,35 +2,56 @@ import math
 import copy
 import random
 
-from server.engine import will_rotated_cells, can_put
-from server.board import Board
+from reversi.engine import will_rotated_cells, can_put
+from reversi.board import Board
 
 
-class BrainBase:
+class MessageProtocol:
     player_id = None
+
+    def on_start(self, board):
+        pass
+    def on_update(self, board):
+        pass
+    def on_failure(self, board):
+        pass
+    def on_gameover(self, board, result):
+        pass
+    def on_continue(self, board):
+        pass
+
+class BrainBase(MessageProtocol):
     next_player = None
     current_board = None
     current_game = 0
     win = 0
     lose = 0
 
-    def on_update(self):
-        pass
+    def on_start(self, board):
+        self.current_game = 1
+        self.current_board = board
 
-    def on_error(self, error):
-        if not error.endswith('is invalid'):
-            return
-        if self.player_id == self.next_player:
-            return self.move()
+    def on_update(self, board):
+        self.current_board = board
+        return self.move()
 
-    def on_another_player_exit(self):
-        return 'exit'
+    def on_failure(self):
+        return self.move()
 
-    def on_gamestart(self):
-        pass
+    def on_gameover(self, board, result):
+        self.current_board = board
+        me = result[self.player_id]
+        enemy = result[-1*self.player_id]
+        self.win = self.win + 1 if me > enemy else self.win
+        self.lose = self.lose + 1 if me < enemy else self.lose
+        print(result)
+        print(self.win)
+        print(self.lose)
 
-    def move_format(self, cell):
-        return '{}:{}'.format(cell[0], cell[1])
+    def on_continue(self, board):
+        self.current_game += 1
+        self.current_board = board
+        return self.move()
 
     def candidate(self):
         # 石が置かれてないものだけに絞る
@@ -59,49 +80,7 @@ class BrainBase:
     def move(self):
         scores = self.calculate_score()
         selection = self.select(scores)
-        return self.move_format(selection)
-
-    def on_gameover(self, result):
-        self.current_board = None
-        self.next_player = None
-
-    def on_receive(self, data):
-        if data.status == 'entered':
-            self.player_id = data.player_id
-        elif data.status == 'start':
-            self.current_game = 1
-            self.on_gamestart()
-            self.next_player = data.next_player
-            self.current_board = data.board
-            if self.next_player == self.player_id:
-                return self.move()
-        elif data.status == 'update':
-            self.next_player = data.next_player
-            self.current_board = data.board
-            self.on_update()
-            if self.next_player == self.player_id:
-                return self.move()
-        elif data.status == 'error':
-            return self.on_error(data.error)
-        elif data.status == 'exit':
-            return self.on_another_player_exit()
-        elif data.status == 'end':
-            self.next_player = None
-            self.current_board = data.board
-            self.on_gameover(data.result)
-            me = data.result[str(self.player_id)]
-            enemy = data.result[str(-1*self.player_id)]
-            self.win = self.win + 1 if me > enemy else self.win
-            self.lose = self.lose + 1 if me < enemy else self.lose
-            print(data.result)
-            print(self.win)
-            print(self.lose)
-        elif data.status == 'continue':
-            self.current_game += 1
-            self.next_player = data.next_player
-            self.current_board = data.board
-            if self.next_player == self.player_id:
-                return self.move()
+        return selection[0], selection[1]
 
     def convert_cell(self, value):
         if value == 'WHITE':
@@ -143,7 +122,7 @@ class RandomBrain(BrainBase):
         return candidate[random.randrange(len(candidate))]
 
 
-class ScoreBrainAlpha(RandomBrain):
+class ExpertBrainAlpha(RandomBrain):
     """おける場所候補から敵石をたくさん取れる置く場所を優先する
     -> 勝率60%
     """
@@ -167,12 +146,12 @@ class ScoreBrainAlpha(RandomBrain):
         return list(scores.keys())[select_index]
 
 
-class ScoreBrainBeta(ScoreBrainAlpha):
+class ExpertBrain(ExpertBrainAlpha):
     """端を優先してとるようにする
     -> 勝率72%
     """
     def calculate_score(self):
-        scores = super(ScoreBrainBeta, self).calculate_score()
+        scores = super(ExpertBrainAlpha, self).calculate_score()
         candidate = list(scores.keys())
         for cell in candidate:
             row, col = cell

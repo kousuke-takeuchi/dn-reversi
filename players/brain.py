@@ -11,6 +11,8 @@ class MessageProtocol:
 
     def on_start(self, board):
         pass
+    def before_update(self, board):
+        pass
     def on_update(self, board):
         pass
     def on_failure(self, board):
@@ -19,6 +21,8 @@ class MessageProtocol:
         pass
     def on_continue(self, board):
         pass
+    def move(self, scores):
+        raise NotImplementedError
 
 class BrainBase(MessageProtocol):
     next_player = None
@@ -33,6 +37,7 @@ class BrainBase(MessageProtocol):
 
     def on_update(self, board):
         self.current_board = board
+        self.before_update(board)
         return self.move()
 
     def on_failure(self):
@@ -44,9 +49,6 @@ class BrainBase(MessageProtocol):
         enemy = result[-1*self.player_id]
         self.win = self.win + 1 if me > enemy else self.win
         self.lose = self.lose + 1 if me < enemy else self.lose
-        print(result)
-        print(self.win)
-        print(self.lose)
 
     def on_continue(self, board):
         self.current_game += 1
@@ -72,7 +74,7 @@ class BrainBase(MessageProtocol):
         return results
 
     def calculate_score(self):
-        raise NotImplementedError()
+        pass
 
     def select(self, scores):
         raise NotImplementedError()

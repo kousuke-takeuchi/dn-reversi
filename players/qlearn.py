@@ -8,7 +8,7 @@ from keras.layers.local import LocallyConnected2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import ELU
 from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping, TensorBoard
 
 from .brain import MessageProtocol, BrainBase
 from .utils import flatten, multiple
@@ -109,8 +109,9 @@ class QBrain(BrainBase):
         self._q[(last_state, self._last_move)] = pQ + self._alpha * ((reward + self._gamma * max_q_new) - pQ)
 
 class DQNBrain(RandomBrain):
-    def __init__(self):
+    def __init__(self, log_filepath='./log'):
         self.model = generate_model()
+        self.callbacks = [TensorBoard(log_dir=log_filepath, histogram_freq=1)]
 
     def move(self):
         current_board = self.to_board_obj()

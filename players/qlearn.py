@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 from keras.models import Sequential, Model
-from keras.layers import Dense, InputLayer, Reshape, Flatten, merge, Input
+from keras.layers import Dense, InputLayer, Reshape, Flatten, Input, Add
 from keras.layers.convolutional import Conv2D, ZeroPadding1D
 from keras.layers.local import LocallyConnected2D
 from keras.layers.normalization import BatchNormalization
@@ -11,7 +11,7 @@ from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, TensorBoard
 
 from .brain import MessageProtocol, BrainBase
-from .utils import flatten, multiple
+from .utils import flatten, multiple, put
 
 
 class QBrain(BrainBase):
@@ -108,13 +108,14 @@ class QBrain(BrainBase):
         # Qテーブルの再計算
         self._q[(last_state, self._last_move)] = pQ + self._alpha * ((reward + self._gamma * max_q_new) - pQ)
 
-class DQNBrain(RandomBrain):
+class DQNBrain(BrainBase):
     def __init__(self, log_filepath='./log'):
-        self.model = generate_model()
+        self.model = self.generate_model()
         self.callbacks = [TensorBoard(log_dir=log_filepath, histogram_freq=1)]
 
     def move(self):
         current_board = self.to_board_obj()
+        current_board = current_board.position
         candidate = self.candidate()
         color = self.player_id
 
@@ -124,13 +125,17 @@ class DQNBrain(RandomBrain):
         actions = [multiple(put(current_board, color, c)) for c in candidate]
         actions = np.array(actions).reshape(-1, 8, 8)
 
+        print(boards)
+        print(colors)
+        print(actions)
+        print(boards.shape)
+        print(colors.shape)
+        print(actions.shape)
+
         self.model.fit([boards, colors, actions],
                             verbose=1,
                             nb_epoch=24,
-                            validation_split=0.2,
-                            callbacks=[
-                                EarlyStopping(patience=1)
-                            ])
+                            validation_split=0.2)
 
         scores = self.model.predict([
             boards,
@@ -143,7 +148,7 @@ class DQNBrain(RandomBrain):
         max_hand = np.argmax(scores)
         return hands[max_hand]
 
-    def generate_model():
+    def generate_model(self):
         board_input = Input(shape=[8, 8])
         action_input = Input(shape=[8, 8])
         color_input = Input(shape=[1])
@@ -168,49 +173,25 @@ class DQNBrain(RandomBrain):
             Flatten()
         ])
 
-        model_dr = Sequential([
-            InputLayer([8, 8]),
-            Reshape([8*8, 1]),
-            ZeroPadding1D(3),
-            Reshape([8, 9, 1]),
-            LocallyConnected2D(64, 8, 1),
-            ELU(),
-            LocallyConnected2D(64, 1, 1),
-            ELU(),
-            Flatten()
-        ])
-
-        model_dl = Sequential([
-            InputLayer([8, 8]),
-            Reshape([8*8, 1]),
-            ZeroPadding1D(2),
-            Reshape([8, 7, 1]),
-            LocallyConnected2D(64, 8, 1),
-            ELU(),
-            LocallyConnected2D(64, 1, 1),
-            ELU(),
-            Flatten()
-        ])
-
         color_model = Sequential([
             InputLayer([1]),
             Dense(256),
             ELU(),
-            Dense(1024),
+            Dense(512),
             ELU()
         ])
 
-        merge_layer = merge([
+        merge_layer = Add()([
             model_v(board_input),
             model_h(board_input),
-            model_dl(board_input),
-            model_dr(board_input),
+            # model_dl(board_input),
+            # model_dr(board_input),
             color_model(color_input),
             model_v(action_input),
             model_h(action_input),
-            model_dl(action_input),
-            model_dr(action_input),
-        ], mode="concat", concat_axis=-1)
+            # model_dl(action_input),
+            # model_dr(action_input),
+        ])
 
         x = Dense(2048)(merge_layer)
         x = BatchNormalization()(x)
@@ -225,7 +206,7 @@ class DQNBrain(RandomBrain):
 
         model = Model(input=[board_input, color_input, action_input], output=[output])
 
-        adam = Adam(lr=1e-4)
+        sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
         model.compile(optimizer=adam, loss="mse")
 
         return model

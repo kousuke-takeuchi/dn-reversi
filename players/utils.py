@@ -16,7 +16,7 @@ def multiple(board):
     boards = np.array([[board], [b_t], [b_r], [b_rt]])
     return boards
 
-def put(board, position):
+def put(board, color, position):
     board = np.copy(board)
     board[position[0], position[1]] = color
     return board

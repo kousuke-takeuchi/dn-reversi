@@ -68,3 +68,7 @@ class Board:
 
     def set_piece(self, color, row, col):
         self.__position[row][col] = color
+
+    @property
+    def position(self):
+        return self.__position

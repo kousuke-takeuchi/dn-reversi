@@ -1,15 +1,17 @@
 import random
 
 import numpy as np
-from keras.models import Sequential, Model
-from keras.layers import Dense, InputLayer, Reshape, Flatten, Input, Add
-from keras.layers.convolutional import Conv2D, ZeroPadding1D
-from keras.layers.local import LocallyConnected2D
-from keras.layers.normalization import BatchNormalization
-from keras.layers.advanced_activations import ELU
-from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping, TensorBoard
-
+try:
+    from keras.models import Sequential, Model
+    from keras.layers import Dense, InputLayer, Reshape, Flatten, Input, Add
+    from keras.layers.convolutional import Conv2D, ZeroPadding1D
+    from keras.layers.local import LocallyConnected2D
+    from keras.layers.normalization import BatchNormalization
+    from keras.layers.advanced_activations import ELU
+    from keras.optimizers import Adam
+    from keras.callbacks import EarlyStopping, TensorBoard
+except Exception:
+    print()
 from .brain import MessageProtocol, BrainBase
 from .utils import flatten, multiple, put
 
@@ -20,15 +22,17 @@ class QBrain(BrainBase):
     INF = float('inf')
     DEFAULT_E = 0.2
     INITIAL_Q = 1  # default 1
+    _total_game_count = 0
+    _q = {}
+    _last_board = None
+    _last_move = None
+    _alpha = 0.3
+    _gamma = 0.9
 
     def __init__(self, e=DEFAULT_E, alpha=0.3, gamma=0.9):
         self._e = e
         self._alpha = alpha
         self._gamma = gamma
-        self._total_game_count = 0
-        self._q = {}
-        self._last_board = None
-        self._last_move = None
 
     def random_select(self, candidate):
         return candidate[random.randrange(len(candidate))]
@@ -108,12 +112,12 @@ class QBrain(BrainBase):
         # Qテーブルの再計算
         self._q[(last_state, self._last_move)] = pQ + self._alpha * ((reward + self._gamma * max_q_new) - pQ)
 
-class DQNBrain(BrainBase):
+class DQNBrain(QBrain):
     def __init__(self, log_filepath='./log'):
         self.model = self.generate_model()
         self.callbacks = [TensorBoard(log_dir=log_filepath, histogram_freq=1)]
 
-    def move(self):
+    def movea(self):
         current_board = self.to_board_obj()
         current_board = current_board.position
         candidate = self.candidate()
@@ -125,16 +129,9 @@ class DQNBrain(BrainBase):
         actions = [multiple(put(current_board, color, c)) for c in candidate]
         actions = np.array(actions).reshape(-1, 8, 8)
 
-        print(boards)
-        print(colors)
-        print(actions)
-        print(boards.shape)
-        print(colors.shape)
-        print(actions.shape)
-
         self.model.fit([boards, colors, actions],
                             verbose=1,
-                            nb_epoch=24,
+                            epochs=4,
                             validation_split=0.2)
 
         scores = self.model.predict([
@@ -156,9 +153,9 @@ class DQNBrain(BrainBase):
         model_v = Sequential([
             InputLayer([8, 8]),
             Reshape([8, 8, 1]),
-            Conv2D(64, 8, 1), # 1x8
+            Conv2D(64, (8, 1)), # 1x8
             ELU(),
-            Conv2D(64, 1, 1),
+            Conv2D(64, (1, 1)),
             ELU(),
             Flatten()
         ])
@@ -166,9 +163,9 @@ class DQNBrain(BrainBase):
         model_h = Sequential([
             InputLayer([8, 8]),
             Reshape([8, 8, 1]),
-            Conv2D(64, 1, 8), # 8x1
+            Conv2D(64, (1, 8)), # 8x1
             ELU(),
-            Conv2D(64, 1, 1),
+            Conv2D(64, (1, 1)),
             ELU(),
             Flatten()
         ])
@@ -204,9 +201,11 @@ class DQNBrain(BrainBase):
         x = ELU()(x)
         output = Dense(1, activation="tanh")(x)
 
-        model = Model(input=[board_input, color_input, action_input], output=[output])
+        model = Model(inputs=[board_input, color_input, action_input], outputs=[output])
 
-        sgd = optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+        adam = Adam(lr=1e-4)
         model.compile(optimizer=adam, loss="mse")
+
+        print(model.summary())
 
         return model

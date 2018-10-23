@@ -1,17 +1,8 @@
 import random
 
 import numpy as np
-try:
-    from keras.models import Sequential, Model
-    from keras.layers import Dense, InputLayer, Reshape, Flatten, Input, Add
-    from keras.layers.convolutional import Conv2D, ZeroPadding1D
-    from keras.layers.local import LocallyConnected2D
-    from keras.layers.normalization import BatchNormalization
-    from keras.layers.advanced_activations import ELU
-    from keras.optimizers import Adam
-    from keras.callbacks import EarlyStopping, TensorBoard
-except Exception:
-    print()
+import tensorflow as tf
+
 from .brain import MessageProtocol, BrainBase
 from .utils import flatten, multiple, put
 
@@ -112,12 +103,12 @@ class QBrain(BrainBase):
         # Qテーブルの再計算
         self._q[(last_state, self._last_move)] = pQ + self._alpha * ((reward + self._gamma * max_q_new) - pQ)
 
-class DQNBrain(QBrain):
-    def __init__(self, log_filepath='./log'):
-        self.model = self.generate_model()
-        self.callbacks = [TensorBoard(log_dir=log_filepath, histogram_freq=1)]
+class DQNBrain(BrainBase):
+    def __init__(self, model):
+        self.model = model
+        self.graph = tf.get_default_graph()
 
-    def movea(self):
+    def move(self):
         current_board = self.to_board_obj()
         current_board = current_board.position
         candidate = self.candidate()
@@ -129,83 +120,35 @@ class DQNBrain(QBrain):
         actions = [multiple(put(current_board, color, c)) for c in candidate]
         actions = np.array(actions).reshape(-1, 8, 8)
 
-        self.model.fit([boards, colors, actions],
-                            verbose=1,
-                            epochs=4,
-                            validation_split=0.2)
+        with self.graph.as_default():
+            scores = self.model.predict([
+                boards,
+                colors,
+                actions
+            ])
 
-        scores = self.model.predict([
-            boards,
-            colors,
-            actions
-        ])
-
-        cores = scores.reshape([-1, 4])
+        scores = scores.reshape([-1, 1])
         scores = np.max(scores, axis=1)
         max_hand = np.argmax(scores)
-        return hands[max_hand]
+        return candidate[max_hand]
 
-    def generate_model(self):
-        board_input = Input(shape=[8, 8])
-        action_input = Input(shape=[8, 8])
-        color_input = Input(shape=[1])
+    def on_gameover(self, board, result):
+        super(DQNBrain, self).on_gameover(board, result)
+        current_board = self.to_board_obj()
+        current_board = current_board.position
+        color = self.player_id
+        boards = [multiple(current_board)]
+        boards = np.array(current_board).reshape(-1, 8, 8)
+        colors = np.array([color]*len(boards)).reshape(-1, 1)
 
-        model_v = Sequential([
-            InputLayer([8, 8]),
-            Reshape([8, 8, 1]),
-            Conv2D(64, (8, 1)), # 1x8
-            ELU(),
-            Conv2D(64, (1, 1)),
-            ELU(),
-            Flatten()
-        ])
+        me = result[self.player_id]
+        enemy = result[-1*self.player_id]
+        score = 1 if me > enemy else -1
+        score = np.array([score])
 
-        model_h = Sequential([
-            InputLayer([8, 8]),
-            Reshape([8, 8, 1]),
-            Conv2D(64, (1, 8)), # 8x1
-            ELU(),
-            Conv2D(64, (1, 1)),
-            ELU(),
-            Flatten()
-        ])
-
-        color_model = Sequential([
-            InputLayer([1]),
-            Dense(256),
-            ELU(),
-            Dense(512),
-            ELU()
-        ])
-
-        merge_layer = Add()([
-            model_v(board_input),
-            model_h(board_input),
-            # model_dl(board_input),
-            # model_dr(board_input),
-            color_model(color_input),
-            model_v(action_input),
-            model_h(action_input),
-            # model_dl(action_input),
-            # model_dr(action_input),
-        ])
-
-        x = Dense(2048)(merge_layer)
-        x = BatchNormalization()(x)
-        x = ELU()(x)
-        x = Dense(512)(x)
-        x = BatchNormalization()(x)
-        x = ELU()(x)
-        x = Dense(128)(x)
-        x = BatchNormalization()(x)
-        x = ELU()(x)
-        output = Dense(1, activation="tanh")(x)
-
-        model = Model(inputs=[board_input, color_input, action_input], outputs=[output])
-
-        adam = Adam(lr=1e-4)
-        model.compile(optimizer=adam, loss="mse")
-
-        print(model.summary())
-
-        return model
+        with self.graph.as_default():
+            self.model.fit([boards, colors, boards], score,
+                           verbose=1,
+                           epochs=1)
+        print("勝ち: ", self.win)
+        print("負け: ", self.lose)

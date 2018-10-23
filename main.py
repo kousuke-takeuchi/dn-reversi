@@ -1,9 +1,11 @@
 from players.brain import RandomBrain, ExpertBrain
 from players.qlearn import QBrain, DQNBrain
+from players import network
 
 
 # me = QBrain(alpha=0.3, gamma=0.9)
-me = DQNBrain()
+model = network.create_model()
+me = DQNBrain(model)
 enemy = RandomBrain()
 
 
